@@ -1,0 +1,9 @@
+torch==2.1.2
+psycopg2
+openai==1
+transformers==4.36.2
+jupyter
+datasets==2.15.0
+tiktoken
+tqdm
+matplotlib
