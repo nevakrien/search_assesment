@@ -96,11 +96,14 @@ if __name__ == "__main__":
     # Connect to the database
     with psycopg2.connect(**conn_params) as conn:
         read_id=get_strategy_by_name(conn,"testing with 3 gpt3.5_v3")['strategy_id']
+        #for realease build use:
+        #read_id=get_strategy_by_name(conn,"testing with 3 gpt3.5")['strategy_id']
         
-        write_id=get_strategy_by_name(conn,f"basic: {model_name}")['strategy_id']
+        write_id=get_strategy_by_name(conn,f"basic: {model_name}")
         if(write_id==None):
             write_id=make_strategy(conn,f"basic: {model_name}")
-        #write_id=-1
+        else:
+            write_id=write_id['strategy_id']
         make_translations_for(conn,read_id,write_id,tokenizer,model)
         print(get_translated_questions_by_parent_and_own_strategy(conn,read_id,write_id))
 
