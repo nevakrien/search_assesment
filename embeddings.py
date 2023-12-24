@@ -113,7 +113,7 @@ if __name__ == "__main__":
     tokenizer=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name)
     model.to('cuda')
-    embedding_table_name=f"{model_name.replace('/','_')}_avrage_pool"
+    embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
     strat_name="naive"
 
 

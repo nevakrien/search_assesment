@@ -57,7 +57,7 @@ def get_naive_retriver(model_name,k=1):
 	tokenizer=AutoTokenizer.from_pretrained(model_name)
 	model=AutoModel.from_pretrained(model_name)
 	model.to('cuda')
-	embedding_table_name=f"{model_name.replace('/','_')}_avrage_pool"
+	embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
 
 	@torch.no_grad
 	def ans(conn,text):
@@ -71,8 +71,17 @@ def get_naive_retriver(model_name,k=1):
 								LIMIT %s;""",
 								(str(emb),k)
 								)
-			return cursor.fetchall()
+			return [x[0] for x in cursor.fetchall()]
 	return ans
+
+def targets_not_in_embeddings(conn,data,embedding_table_name):
+	with conn.cursor() as cursor:
+			cursor.execute(f"""SELECT snippet_id
+								FROM {embedding_table_name}"""
+								)
+			ans=[x[0] for x in cursor.fetchall()]
+	#print(len(ans))
+	return [x for x in data if x[1] not in ans]
 
 
 if __name__=="__main__":
@@ -87,10 +96,14 @@ if __name__=="__main__":
 		#print(data)
 		#hack=[x[1] for x in data]
 		#hack=list(range(100))
-		hack=[data[0][1]]
+		#hack=[data[0][1]]
 
+		model_name="avichr/heBERT"
+		#model_name="avichr/Legal-heBERT"
+		embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+		print(targets_not_in_embeddings(conn,data,embedding_table_name))
+		retrive=get_naive_retriver(model_name,100)#327285
 		
-		retrive=get_naive_retriver("avichr/heBERT",100)
 		ans=evaluate_retriver(conn,retrive,data)
 		# with ThreadPoolExecutor() as ex:
 		# 	ans=sum(ex.map(lambda x:x[1] in retrive(conn,x[0]),data))
