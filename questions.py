@@ -34,11 +34,11 @@ def get_gpt_snippets_by_strategy(conn, strategy_id):
 def get_question(client, text):
     
     completion = client.chat.completions.create(
-        model="gpt-4-1106-preview",
+        model="gpt-3.5-turbo-1106",
         messages=[
-            {"role": "system", "content": "You will be provided with a text. Your task is to formulate specific and insightful questions that delve into the details and information within this text. Including names and specific details is encouraged, as long as they are not serial numbers or unique identifiers specific to the case. Avoid direct references to the document such as 'according to the document' or 'based on the document'."},
+            {"role": "system", "content": "You will be provided with a text. Your task is to formulate a single question that is specific, detailed, and insightful, based on the information in the text. The question should center around the names of the people involved and the actions or events described. Avoid phrases like 'in the document', 'according to the document', or any unique identifiers like serial or case numbers. For example, do not ask 'What did the document say about Rachel Hali Miron's economic rights?' Instead, ask 'What specific allegations did Rachel Hali Miron make regarding the violation of her economic rights?'"},
             {"role": "user", "content": text},
-            {"role": "system", "content": "Focus on creating questions that demonstrate a deep understanding of the text's content. Include names and specific details where relevant, but avoid mentioning the document directly or using unique identifiers like case or serial numbers."},
+            {"role": "system", "content": "Craft a single question that is clear and standalone, focusing on the actions, decisions, and roles of the individuals named in the text. The question should be understandable and answerable without referring back to the text."},
         ]
     )
     return completion.choices[0].message.content 
@@ -76,7 +76,7 @@ if __name__=="__main__":
 
 	with psycopg2.connect(**conn_params) as conn:  
 		read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
-		write_id=make_strategy(conn,"testing with 3 v2")
+		write_id=make_strategy(conn,"testing with 3 gpt3.5")
 		make_questions_for(conn,read_id,write_id,client,3)
 
 	

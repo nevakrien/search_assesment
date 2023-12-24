@@ -14,6 +14,7 @@ createdb -h localhost -U postgres hebrew_search_reaserch
 
 '''bash 
 psql -h localhost -U postgres hebrew_search_reaserch < sql_src/setup.sql 
+psql -h localhost -U postgres hebrew_search_reaserch < sql_src/question.sql 
 '''
 
 # deafualt documents

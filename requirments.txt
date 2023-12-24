@@ -7,3 +7,4 @@ datasets==2.15.0
 tiktoken
 tqdm
 matplotlib
+SentencePiece
