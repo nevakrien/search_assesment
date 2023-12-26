@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     # Connect to the database
     with psycopg2.connect(**conn_params) as conn:
-        read_id=get_strategy_by_name(conn,"testing with 3 gpt3.5_v3")['strategy_id']
+        read_id=get_strategy_by_name(conn,"1000 gpt3.5")['strategy_id']
         #for realease build use:
         #read_id=get_strategy_by_name(conn,"testing with 3 gpt3.5")['strategy_id']
         

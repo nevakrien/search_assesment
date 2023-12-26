@@ -63,6 +63,7 @@ def chunk_iterator(snippets,tokenizer,max_size,chunk_size):
 def run_mean(tokens,mask,model):
     mask=torch.IntTensor(mask).to(model.device)
     tokens=torch.IntTensor(tokens).to(model.device)
+    #print(tokens.shape)
 
     out=model(tokens,mask).last_hidden_state
     
@@ -90,13 +91,14 @@ def update_embeddings(conn,table_name,l):
                 VALUES (%s, %s, %s, %s)""",
                 l)
 
-def make_naive_embedding(conn,read_id,write_id,table_name,tokenizer,model):
+def make_naive_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_size=500):
     
     make_embeddings_table(conn,table_name,model.config.hidden_size)
     max_size=model.config.max_position_embeddings
+    #print(max_size)
     snippets=get_gpt_snippets_by_strategy(conn,read_id)
     
-    chunk_size=500
+    
     for c in chunk_iterator(tqdm(snippets),tokenizer,max_size,chunk_size):
         mask=[[1]*len(x[1])+[0]*(max_size-len(x[1])) for x in c]
         tokens=[x[1]+[0]*(max_size-len(x[1])) for x in c]
@@ -108,12 +110,14 @@ def make_naive_embedding(conn,read_id,write_id,table_name,tokenizer,model):
 if __name__ == "__main__":
     #using avrage pooling because https://aclanthology.org/D19-1410.pdf
     
-    model_name="avichr/Legal-heBERT"
+    model_name="facebook/nllb-200-3.3B"
+    #model_name="bert-base-multilingual-cased"
+    #model_name="avichr/Legal-heBERT"
     #model_name="avichr/heBERT"
     tokenizer=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name)
     model.to('cuda')
-    embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+    embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
     strat_name="naive"
 
 
@@ -127,4 +131,4 @@ if __name__ == "__main__":
         else:
             write_id=write_id['strategy_id']
         
-        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)
+        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model,chunk_size=32)

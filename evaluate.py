@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from transformers import AutoTokenizer,AutoModel
 import torch
 
-def get_question_answer_pairs(conn, strategy_id):
+def get_original_question_answer_pairs(conn, strategy_id):
     """
     Fetch the question text and the snippet ID for a given question ID.
 
@@ -43,6 +43,11 @@ def get_translated_question_answer_pairs(conn, strategy_id,translation_strategy_
 
         result = cursor.fetchall()
     return result
+
+def get_question_answer_pairs(conn, strategy_id,translation_strategy_id):
+	if(translation_strategy_id==None):
+		return get_original_question_answer_pairs(conn,strategy_id)
+	return get_translated_question_answer_pairs(conn, strategy_id,translation_strategy_id)
 
 def evaluate_retriver(conn,func,data):
 	with ThreadPoolExecutor() as ex:
@@ -87,22 +92,24 @@ def targets_not_in_embeddings(conn,data,embedding_table_name):
 if __name__=="__main__":
 
 	with psycopg2.connect(**conn_params) as conn:  
-		strats=["testing with 3 gpt3.5_v3"]
-		trans_strats=["basic: facebook/nllb-200-3.3B"]
+		strats=["1000 gpt3.5"]
+		#trans_strats=["basic: facebook/nllb-200-3.3B"]
 		strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in strats]
-		translation_strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in trans_strats]
-		data=[get_translated_question_answer_pairs(conn,x1,x2) for x1,x2 in zip(strategy_ids,translation_strategy_ids)]
+		#translation_strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in trans_strats]
+		translation_strategy_ids=[None]
+		data=[get_question_answer_pairs(conn,x1,x2) for x1,x2 in zip(strategy_ids,translation_strategy_ids)]
 		data=sum(data,[])
 		#print(data)
 		#hack=[x[1] for x in data]
 		#hack=list(range(100))
 		#hack=[data[0][1]]
 
-		model_name="avichr/heBERT"
+		#model_name="avichr/heBERT"
 		#model_name="avichr/Legal-heBERT"
+		model_name="bert-base-multilingual-cased"
 		embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
 		print(targets_not_in_embeddings(conn,data,embedding_table_name))
-		retrive=get_naive_retriver(model_name,100)#327285
+		retrive=get_naive_retriver(model_name,100)#327285 #100_000
 		
 		ans=evaluate_retriver(conn,retrive,data)
 		# with ThreadPoolExecutor() as ex:

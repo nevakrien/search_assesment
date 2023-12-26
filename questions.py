@@ -68,7 +68,12 @@ def make_questions_for(conn,read_strategy_id,write_strategy_id,client,cup=None):
 	snippets=[s for s in snippets if s['question']]
 	
 	csv_buffer=create_in_memory_csv([(write_strategy_id,f["snippet_id"],f["question"]) for f in snippets])
-	bulk_move(csv_buffer,conn)
+	try:
+		bulk_move(csv_buffer,conn)
+	except Exception as e:
+		with open('crash_question_data.csv','w') as f:
+			f.write(csv_buffer.getvalue())
+		raise e
 
 if __name__=="__main__":
 
@@ -76,8 +81,15 @@ if __name__=="__main__":
 
 	with psycopg2.connect(**conn_params) as conn:  
 		read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
-		write_id=make_strategy(conn,"testing with 3 gpt3.5")
-		make_questions_for(conn,read_id,write_id,client,3)
+		
+		write_name="1000 gpt3.5"
+		write_id=get_strategy_by_name(conn,write_name)
+		if(write_id==None):
+		    write_id=make_strategy(conn,write_name)
+		else:
+		    write_id=write_id['strategy_id']
+		
+		make_questions_for(conn,read_id,write_id,client,1000)
 
 	
 	
