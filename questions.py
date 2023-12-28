@@ -31,10 +31,10 @@ def get_gpt_snippets_by_strategy(conn, strategy_id):
 
 
 
-def get_question(client, text):
+def get_question(client, text,model):
     
     completion = client.chat.completions.create(
-        model="gpt-3.5-turbo-1106",
+        model=model,
         messages=[
             {"role": "system", "content": "You will be provided with a text. Your task is to formulate a single question that is specific, detailed, and insightful, based on the information in the text. The question should center around the names of the people involved and the actions or events described. Avoid phrases like 'in the document', 'according to the document', or any unique identifiers like serial or case numbers. For example, do not ask 'What did the document say about Rachel Hali Miron's economic rights?' Instead, ask 'What specific allegations did Rachel Hali Miron make regarding the violation of her economic rights?'"},
             {"role": "user", "content": text},
@@ -48,9 +48,9 @@ def bulk_move(csv_buffer,conn):
     with conn.cursor() as cursor:
         cursor.copy_expert("COPY questions (strategy_id,snippet_id, contents) FROM STDIN WITH CSV", csv_buffer)
 
-def make_question_entry(client,snippet):
+def make_question_entry(client,snippet,model):
 	try:
-		snippet["question"]=get_question(client,snippet["snippet_text"])
+		snippet["question"]=get_question(client,snippet["snippet_text"],model)
 	except Exception as e:
 		print(e)
 		snippet["question"]=None
@@ -58,13 +58,13 @@ def make_question_entry(client,snippet):
 	return snippet
 
 
-def make_questions_for(conn,read_strategy_id,write_strategy_id,client,cup=None):
+def make_questions_for(conn,read_strategy_id,write_strategy_id,client,cup=None,model="gpt-3.5-turbo-1106"):
 	snippets=get_gpt_snippets_by_strategy(conn,read_strategy_id)
 	if cup:
 		snippets=random.sample(snippets,cup)
 	
 	with ThreadPoolExecutor() as ex:
-		snippets=ex.map(lambda s: make_question_entry(client,s),snippets)
+		snippets=ex.map(lambda s: make_question_entry(client,s,model),snippets)
 	snippets=[s for s in snippets if s['question']]
 	
 	csv_buffer=create_in_memory_csv([(write_strategy_id,f["snippet_id"],f["question"]) for f in snippets])
@@ -80,16 +80,18 @@ if __name__=="__main__":
 	client = OpenAI()
 
 	with psycopg2.connect(**conn_params) as conn:  
-		read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
+		#read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
+		read_id=get_strategy_by_name(conn,"10wikipedia choped  100_000")['strategy_id']
 		
-		write_name="1000 gpt3.5"
+		#write_name="1000 gpt3.5"
+		write_name="10 wikipedia gpt4"
 		write_id=get_strategy_by_name(conn,write_name)
 		if(write_id==None):
 		    write_id=make_strategy(conn,write_name)
 		else:
 		    write_id=write_id['strategy_id']
 		
-		make_questions_for(conn,read_id,write_id,client,1000)
+		make_questions_for(conn,read_id,write_id,client,None,"gpt-4-1106-preview")#,1000)
 
 	
 	

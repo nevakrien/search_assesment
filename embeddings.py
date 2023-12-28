@@ -9,6 +9,7 @@ import torch
 
 from tqdm import tqdm
 
+
 def make_embeddings_table(conn, table_name, vector_size):
     """
     Create a dynamic table for embeddings with a specified vector size, if it does not already exist.
@@ -18,17 +19,8 @@ def make_embeddings_table(conn, table_name, vector_size):
     :param vector_size: Size of the vector for the 'embedding' column
     """
     with conn.cursor() as cursor:
-        # Check if table already exists
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM pg_tables
-                WHERE schemaname = 'public' AND tablename  = %s
-            );
-        """, (table_name,))
-        table_exists = cursor.fetchone()[0]
-
-        if not table_exists:
-            # Create the table if it doesn't exist
+        try:
+            # Try creating the table
             create_table_sql = f"""
                 CREATE TABLE {table_name} (
                     embedding_id SERIAL PRIMARY KEY,
@@ -44,8 +36,10 @@ def make_embeddings_table(conn, table_name, vector_size):
             """
             cursor.execute(create_table_sql)
             print(f"Table '{table_name}' created successfully.")
-        else:
+        except psycopg2.errors.DuplicateTable:
+            # Handle duplicate table error
             print(f"Table '{table_name}' already exists.")
+            conn.rollback()
 
 def chunk_iterator(snippets,tokenizer,max_size,chunk_size):
     ans=[]
@@ -109,23 +103,30 @@ def make_naive_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_
 # Example usage
 if __name__ == "__main__":
     #using avrage pooling because https://aclanthology.org/D19-1410.pdf
-    
-    model_name="facebook/nllb-200-3.3B"
     #model_name="bert-base-multilingual-cased"
     #model_name="avichr/Legal-heBERT"
-    #model_name="avichr/heBERT"
+    model_name="avichr/heBERT"
     tokenizer=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name)
     model.to('cuda')
-    embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
-    strat_name="naive"
+    #embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
+    #strat_name="naive"
+    strat_name="test_naive"
+    table_extra="wiki_"
+
+    #BREAKING CHANGE
+    embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
 
 
     #print(model(**tokenizer("שלום",return_tensors="pt")).last_hidden_state.shape)
     with psycopg2.connect(**conn_params) as conn:
-        read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
+        #read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
+        read_id=get_strategy_by_name(conn,"10wikipedia choped  100_000")['strategy_id']
+        print(read_id)
         
+
         write_id=get_strategy_by_name(conn,f"{model_name}:{strat_name}")#['strategy_id']
+        
         if(write_id==None):
             write_id=make_strategy(conn,f"{model_name}:{strat_name}")
         else:

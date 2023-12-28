@@ -37,10 +37,11 @@ def make_snipets_in_range(conn,read_strategy_id,write_strategy_id,min_tokens=1_0
 	bulk_move(csv_buffer,conn)
 
 if __name__=="__main__":
-	
-	with psycopg2.connect(**conn_params) as conn:
-		read_id=get_strategy_by_name(conn,"deafualt supreme court israel")['strategy_id']
-		write_id=make_strategy(conn,"deafualt choped 1_000 10_000")
-		make_snipets_in_range(conn,read_id,write_id)
 
-	print('done')
+    with psycopg2.connect(**conn_params) as conn:
+        #read_id=get_strategy_by_name(conn,"deafualt supreme court israel")['strategy_id']
+        read_id=get_strategy_by_name(conn,"10wikipedia")['strategy_id']
+        write_id=make_strategy(conn,"10wikipedia choped  100_000")
+        make_snipets_in_range(conn,read_id,write_id,min_tokens=0,max_tokens=100_000)
+
+    print('done')

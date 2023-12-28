@@ -8,3 +8,4 @@ tiktoken
 tqdm
 matplotlib
 SentencePiece
+bs4

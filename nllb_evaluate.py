@@ -52,23 +52,27 @@ def get_question_answer_pairs(conn, strategy_id,translation_strategy_id):
 	return get_translated_question_answer_pairs(conn, strategy_id,translation_strategy_id)
 
 def evaluate_retriver(conn,func,data):
-	with ThreadPoolExecutor() as ex:
-			ans=sum(tqdm(ex.map(lambda x:x[1] in func(conn,x[0]),data),total=len(data)))
+	#with ThreadPoolExecutor() as ex:
+	ans=sum(tqdm(map(lambda x:x[1] in func(conn,x[0]),data),total=len(data)))
 	return ans
 
 #overwrite this
 def retrive(conn,question):
 	return hack;
 
-def get_naive_retriver(model_name,embedding_table_name,k=1):
-	tokenizer=AutoTokenizer.from_pretrained(model_name)
-	model=AutoModel.from_pretrained(model_name)
+def get_naive_retriver(model_name,k=1):
+	tokenizer=AutoTokenizer.from_pretrained(model_name,src_lang="heb_Hebr")
+	model=AutoModel.from_pretrained(model_name).encoder
 	model.to('cuda')
-	#embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+	embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
 
 	@torch.no_grad
 	def ans(conn,text):
-		emb=model(tokenizer.encode(text,return_tensors='pt').to(model.device))
+		encoded_text = tokenizer(text, return_tensors="pt")
+		encoded_text['input_ids'][:,1]=tokenizer.lang_code_to_id[tokenizer.src_lang]
+		encoded_text={k:v.to(model.device) for k,v in encoded_text.items()}
+		
+		emb=model(**encoded_text)
 		emb=emb.last_hidden_state.mean(1).cpu().tolist()[0]
 		with conn.cursor() as cursor:
 			cursor.execute(f"""SELECT snippet_id
@@ -94,11 +98,11 @@ def targets_not_in_embeddings(conn,data,embedding_table_name):
 if __name__=="__main__":
 
 	with psycopg2.connect(**conn_params) as conn:  
-		strats=["10 wikipedia gpt4"]#["1000 gpt3.5"]
-		trans_strats=["basic: facebook/nllb-200-3.3B"]
+		strats=["1000 gpt3.5"]
+		#trans_strats=["basic: facebook/nllb-200-3.3B"]
 		strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in strats]
-		translation_strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in trans_strats]
-		#translation_strategy_ids=[None]
+		#translation_strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in trans_strats]
+		translation_strategy_ids=[None]
 		data=[get_question_answer_pairs(conn,x1,x2) for x1,x2 in zip(strategy_ids,translation_strategy_ids)]
 		data=sum(data,[])
 		#print(data)
@@ -106,14 +110,10 @@ if __name__=="__main__":
 		#hack=list(range(100))
 		#hack=[data[0][1]]
 
-		model_name="avichr/heBERT"
-		#model_name="avichr/Legal-heBERT"
-		#model_name="bert-base-multilingual-cased"
-
-		table_extra="wiki_"
-		embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+		model_name="facebook/nllb-200-3.3B"
+		embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
 		print(targets_not_in_embeddings(conn,data,embedding_table_name))
-		retrive=get_naive_retriver(model_name,embedding_table_name,3)#327285 #100_000
+		retrive=get_naive_retriver(model_name,100)#327285 #100_000
 		
 		ans=evaluate_retriver(conn,retrive,data)
 		# with ThreadPoolExecutor() as ex:
