@@ -60,6 +60,26 @@ def evaluate_retriver(conn,func,data):
 def retrive(conn,question):
 	return hack;
 
+def get_random_retriver(model_name,embedding_table_name,k=1):
+	tokenizer=AutoTokenizer.from_pretrained(model_name)
+	model=AutoModel.from_pretrained(model_name)
+	model.to('cuda')
+	#embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+
+	@torch.no_grad
+	def ans(conn,text):
+		emb=model(tokenizer.encode(text,return_tensors='pt').to(model.device))
+		emb=emb.last_hidden_state.mean(1).cpu().tolist()[0]
+		with conn.cursor() as cursor:
+			cursor.execute(f"""SELECT snippet_id
+								FROM {embedding_table_name}
+								WHERE embedding IS NOT NULL
+								LIMIT %s;""",
+								(k,)
+								)
+			return [x[0] for x in cursor.fetchall()]
+	return ans
+
 def get_naive_retriver(model_name,embedding_table_name,k=1):
 	tokenizer=AutoTokenizer.from_pretrained(model_name)
 	model=AutoModel.from_pretrained(model_name)
@@ -94,11 +114,13 @@ def targets_not_in_embeddings(conn,data,embedding_table_name):
 if __name__=="__main__":
 
 	with psycopg2.connect(**conn_params) as conn:  
-		strats=["10 wikipedia gpt4"]#["1000 gpt3.5"]
-		trans_strats=["basic: facebook/nllb-200-3.3B"]
+		#strats=["10 wikipedia gpt4"]#["1000 gpt3.5"]
+		strats=["hebrew squad (context->question)"]
+		#trans_strats=["basic: facebook/nllb-200-3.3B"]
 		strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in strats]
-		translation_strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in trans_strats]
-		#translation_strategy_ids=[None]
+		#translation_strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in trans_strats]
+		
+		translation_strategy_ids=[None]
 		data=[get_question_answer_pairs(conn,x1,x2) for x1,x2 in zip(strategy_ids,translation_strategy_ids)]
 		data=sum(data,[])
 		#print(data)
@@ -110,12 +132,15 @@ if __name__=="__main__":
 		#model_name="avichr/Legal-heBERT"
 		#model_name="bert-base-multilingual-cased"
 
-		table_extra="wiki_"
+		table_extra="squad_ContextFromQuestion_"#"wiki_"
 		embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_')}_avrage_pool"
 		print(targets_not_in_embeddings(conn,data,embedding_table_name))
-		retrive=get_naive_retriver(model_name,embedding_table_name,3)#327285 #100_000
+		#retrive=get_naive_retriver(model_name,embedding_table_name,1)#327285 #100_000
+		retrive=get_random_retriver(model_name,embedding_table_name,3)#327285 #100_000
+		
 		
 		ans=evaluate_retriver(conn,retrive,data)
+		
 		# with ThreadPoolExecutor() as ex:
 		# 	ans=sum(ex.map(lambda x:x[1] in retrive(conn,x[0]),data))
 

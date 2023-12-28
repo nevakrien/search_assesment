@@ -112,7 +112,7 @@ if __name__ == "__main__":
     #embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
     #strat_name="naive"
     strat_name="test_naive"
-    table_extra="wiki_"
+    table_extra="squad_ContextFromQuestion_"#"wiki_"
 
     #BREAKING CHANGE
     embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
@@ -121,7 +121,8 @@ if __name__ == "__main__":
     #print(model(**tokenizer("שלום",return_tensors="pt")).last_hidden_state.shape)
     with psycopg2.connect(**conn_params) as conn:
         #read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
-        read_id=get_strategy_by_name(conn,"10wikipedia choped  100_000")['strategy_id']
+        #read_id=get_strategy_by_name(conn,"10wikipedia choped  100_000")['strategy_id']
+        read_id=get_strategy_by_name(conn,"hebrew squad (context->question)")['strategy_id']
         print(read_id)
         
 
@@ -132,4 +133,4 @@ if __name__ == "__main__":
         else:
             write_id=write_id['strategy_id']
         
-        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model,chunk_size=32)
+        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)#,chunk_size=32)
