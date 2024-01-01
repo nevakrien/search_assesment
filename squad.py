@@ -7,9 +7,14 @@ from os.path import join
 
 from tqdm import tqdm
 
+# def get_val():
+# 	with open(join('data','tdklab___hebrew_squad_v1','validation.json')) as f:
+# 		return json.load(f)['data']
+
 def get_val():
-	with open(join('data','tdklab___hebrew_squad_v1','validation.json')) as f:
-		return json.load(f)['data']
+    from datasets import load_dataset
+    return load_dataset("squad",split='validation')
+
 
 
 def add_data(conn, data_list, strategy_id):
@@ -36,6 +41,7 @@ if __name__=="__main__":
 	data=get_val()
 	#print(data[0].keys())
 	with psycopg2.connect(**conn_params) as conn:  
-		write_id=make_strategy(conn,"hebrew squad (context->question)")
+        #write_id=make_strategy(conn,"hebrew squad (context->question)")
+		write_id=make_strategy(conn,"ensglish squad (context->question)")
 		add_data(conn,data,write_id)
 		

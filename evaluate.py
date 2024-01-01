@@ -101,6 +101,29 @@ def get_naive_retriver(model_name,embedding_table_name,k=1):
 			return [x[0] for x in cursor.fetchall()]
 	return ans
 
+def get_pooler_retriver(model_name,embedding_table_name,k=1):
+	assert embedding_table_name[-7:]=="_pooler"
+
+	tokenizer=AutoTokenizer.from_pretrained(model_name)
+	model=AutoModel.from_pretrained(model_name)
+	model.to('cuda')
+	#embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+
+	@torch.no_grad
+	def ans(conn,text):
+		emb=model(tokenizer.encode(text,return_tensors='pt').to(model.device))
+		emb=emb.pooler_output.cpu().tolist()[0]
+		with conn.cursor() as cursor:
+			cursor.execute(f"""SELECT snippet_id
+								FROM {embedding_table_name}
+								WHERE embedding IS NOT NULL
+								ORDER BY embedding <=> %s
+								LIMIT %s;""",
+								(str(emb),k)
+								)
+			return [x[0] for x in cursor.fetchall()]
+	return ans
+
 def targets_not_in_embeddings(conn,data,embedding_table_name):
 	with conn.cursor() as cursor:
 			cursor.execute(f"""SELECT snippet_id
@@ -115,7 +138,9 @@ if __name__=="__main__":
 
 	with psycopg2.connect(**conn_params) as conn:  
 		#strats=["10 wikipedia gpt4"]#["1000 gpt3.5"]
-		strats=["hebrew squad (context->question)"]
+		#strats=["hebrew squad (context->question)"]
+		strats=["ensglish squad (context->question)"]
+		
 		#trans_strats=["basic: facebook/nllb-200-3.3B"]
 		strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in strats]
 		#translation_strategy_ids=[get_strategy_by_name(conn,s)['strategy_id'] for s in trans_strats]
@@ -128,15 +153,20 @@ if __name__=="__main__":
 		#hack=list(range(100))
 		#hack=[data[0][1]]
 
-		model_name="avichr/heBERT"
+		model_name="models/bert-base-uncased_v1"
+		#model_name="bert-base-uncased"
+		#model_name="avichr/heBERT"
 		#model_name="avichr/Legal-heBERT"
 		#model_name="bert-base-multilingual-cased"
 
 		table_extra="squad_ContextFromQuestion_"#"wiki_"
-		embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+		#embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+		embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_pooler"
+		
 		print(targets_not_in_embeddings(conn,data,embedding_table_name))
 		#retrive=get_naive_retriver(model_name,embedding_table_name,1)#327285 #100_000
-		retrive=get_random_retriver(model_name,embedding_table_name,3)#327285 #100_000
+		retrive=get_pooler_retriver(model_name,embedding_table_name,1)
+		#retrive=get_random_retriver(model_name,embedding_table_name,3)#327285 #100_000
 		
 		
 		ans=evaluate_retriver(conn,retrive,data)

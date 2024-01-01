@@ -66,6 +66,15 @@ def run_mean(tokens,mask,model):
     #print(out.sum(1).shape)
     return (out.sum(1)/mask.sum(1)).cpu().tolist()
 
+@torch.no_grad
+def run_pooler(tokens,mask,model):
+    mask=torch.IntTensor(mask).to(model.device)
+    tokens=torch.IntTensor(tokens).to(model.device)
+    #print(tokens.shape)
+
+    return model(tokens,mask).pooler_output.cpu().tolist()
+    
+
 
 # def update_embeddings(conn,table_name,l):
 #     #print([len(x) for x in l[0][-2:]])
@@ -100,29 +109,48 @@ def make_naive_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_
         out=run_mean(tokens,mask,model)
         update_embeddings(conn,table_name,[(x[0],write_id,x[1],o) for x,o in zip(c,out)])
 
+def make_pooler_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_size=500):
+    make_embeddings_table(conn,table_name,model.config.hidden_size)
+    max_size=model.config.max_position_embeddings
+    #print(max_size)
+    snippets=get_gpt_snippets_by_strategy(conn,read_id)
+    
+    
+    for c in chunk_iterator(tqdm(snippets),tokenizer,max_size,chunk_size):
+        mask=[[1]*len(x[1])+[0]*(max_size-len(x[1])) for x in c]
+        tokens=[x[1]+[0]*(max_size-len(x[1])) for x in c]
+
+        out=run_pooler(tokens,mask,model)
+        update_embeddings(conn,table_name,[(x[0],write_id,x[1],o) for x,o in zip(c,out)])
+
 # Example usage
 if __name__ == "__main__":
     #using avrage pooling because https://aclanthology.org/D19-1410.pdf
     #model_name="bert-base-multilingual-cased"
     #model_name="avichr/Legal-heBERT"
-    model_name="avichr/heBERT"
+    #model_name="avichr/heBERT"
+    #model_name="bert-base-uncased"
+    model_name="models/bert-base-uncased_v1"
+
     tokenizer=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name)
     model.to('cuda')
     #embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
     #strat_name="naive"
-    strat_name="test_naive"
+    strat_name="test_based"
     table_extra="squad_ContextFromQuestion_"#"wiki_"
 
     #BREAKING CHANGE
-    embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
+    #embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
+    embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_pooler"
 
 
     #print(model(**tokenizer("שלום",return_tensors="pt")).last_hidden_state.shape)
     with psycopg2.connect(**conn_params) as conn:
         #read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
         #read_id=get_strategy_by_name(conn,"10wikipedia choped  100_000")['strategy_id']
-        read_id=get_strategy_by_name(conn,"hebrew squad (context->question)")['strategy_id']
+        #read_id=get_strategy_by_name(conn,"hebrew squad (context->question)")['strategy_id']
+        read_id=get_strategy_by_name(conn,"ensglish squad (context->question)")['strategy_id']
         print(read_id)
         
 
@@ -133,4 +161,5 @@ if __name__ == "__main__":
         else:
             write_id=write_id['strategy_id']
         
-        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)#,chunk_size=32)
+        #make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)#,chunk_size=32)
+        make_pooler_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)
