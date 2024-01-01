@@ -48,8 +48,11 @@ def plot_experiments(experiments):
 
 # Example Data
 experiments = {
-    'english': {'k': 1, 'N': 10570, 'Q': 10570, 'X': 4307},
-    'hebrew': {'k': 1, 'N': 7455, 'Q': 7455, 'X': 1169},#1690
+    'english':{'k': 1, 'N': 10570, 'Q': 10570, 'X': 4506},
+    'hebrew':{'k': 1, 'N': 7455, 'Q': 7455, 'X': 2329},
+    'hebrew (multi lang)':{'k': 1, 'N': 7455, 'Q': 7455, 'X': 1671},
+    #'json_dump english': {'k': 1, 'N': 10570, 'Q': 10570, 'X': 4307},
+    #'json_dump hebrew': {'k': 1, 'N': 7455, 'Q': 7455, 'X': 1169},#1690
 }
 
 # Run the function with your experiments

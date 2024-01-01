@@ -4,10 +4,6 @@ documentation is still lacking
 
 this code was supposed to be an easy to use repo for this purpose. however as I keep doing reaserch I find that this is not nearly done and so finalizing it is futile. I would make another repo with the user side code for other devlopers once I have a satisfactory algorithem.
 
-# notes to self 
-## bugs
-for the squad dataset I am puting the answers list as a python string... instead of answers themselves. 
-this should be fixed gona put some effort in
 
 # build 
 python 3.10

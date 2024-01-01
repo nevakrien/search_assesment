@@ -126,31 +126,31 @@ def make_pooler_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk
 # Example usage
 if __name__ == "__main__":
     #using avrage pooling because https://aclanthology.org/D19-1410.pdf
-    #model_name="bert-base-multilingual-cased"
+    model_name="bert-base-multilingual-cased"
     #model_name="avichr/Legal-heBERT"
     #model_name="avichr/heBERT"
     #model_name="bert-base-uncased"
-    model_name="models/bert-base-uncased_v1"
+    #model_name="models/bert-base-uncased_v1"
 
     tokenizer=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name)
     model.to('cuda')
     #embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
-    #strat_name="naive"
-    strat_name="test_based"
+    strat_name="naive"
+    #strat_name="test_based"
     table_extra="squad_ContextFromQuestion_"#"wiki_"
 
     #BREAKING CHANGE
-    #embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
-    embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_pooler"
+    embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
+    #embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_pooler"
 
 
     #print(model(**tokenizer("שלום",return_tensors="pt")).last_hidden_state.shape)
     with psycopg2.connect(**conn_params) as conn:
         #read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
         #read_id=get_strategy_by_name(conn,"10wikipedia choped  100_000")['strategy_id']
-        #read_id=get_strategy_by_name(conn,"hebrew squad (context->question)")['strategy_id']
-        read_id=get_strategy_by_name(conn,"ensglish squad (context->question)")['strategy_id']
+        read_id=get_strategy_by_name(conn,"hebrew squad (question->context)")['strategy_id']
+        #read_id=get_strategy_by_name(conn,"ensglish squad (question->context)")['strategy_id']
         print(read_id)
         
 
@@ -161,5 +161,5 @@ if __name__ == "__main__":
         else:
             write_id=write_id['strategy_id']
         
-        #make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)#,chunk_size=32)
-        make_pooler_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)
+        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)#,chunk_size=32)
+        #make_pooler_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)
