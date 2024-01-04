@@ -9,3 +9,5 @@ tqdm
 matplotlib
 SentencePiece
 bs4
+deepsparse[sentence_transformers]
+deepsparse-nightly[sentence_transformers]

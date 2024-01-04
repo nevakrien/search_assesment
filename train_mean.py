@@ -76,7 +76,7 @@ def get_batcher(tokenizer):
         
 
 def train_loop(model, data, optimizer=None,scedualer=None, margin=1.):
-    sim = lambda x,y: -torch.norm(x-y,dim=1)#F.cosine_similarity
+    dis = lambda x,y: torch.norm(x-y,dim=1)#F.cosine_similarity
     running_loss = 0.0
     non_zeroed_losses = 0
     correct_predictions = 0
@@ -92,18 +92,18 @@ def train_loop(model, data, optimizer=None,scedualer=None, margin=1.):
         (q, a, w) = b
 
         # Compute cosine similarities
-        sim_q_a = sim(q, a)
-        sim_q_w = sim(q, w)
+        dis_q_a = dis(q, a)
+        dis_q_w = dis(q, w)
 
 
         # Compute the raw loss before clamping
-        raw_loss = (sim_q_w - sim_q_a) + margin
+        raw_loss = (dis_q_a - dis_q_w) + margin
 
         # Count non-zero losses
         non_zeroed_losses += (raw_loss >= 0).detach().sum().cpu().item()
 
         # Count correct predictions (accuracy)
-        correct_predictions += (sim_q_a > sim_q_w).detach().sum().cpu().item()
+        correct_predictions += (dis_q_w > dis_q_a).detach().sum().cpu().item()
 
         # Apply clamping and compute mean loss for the batch
         loss = raw_loss.clamp(min=0).mean()
@@ -145,7 +145,7 @@ def save_model_with_unique_name(model,tokenizer, model_name, directory='models')
     return model_path
 
 if __name__=="__main__":
-    #trying stuff from https://aclanthology.org/2020.acl-main.207.pdf
+    #trying stuff from https://aclanthology.org/D19-1410.pdf
     #model_name="bert-base-multilingual-cased"
     #model_name="avichr/Legal-heBERT"
     #model_name="avichr/heBERT"

@@ -94,38 +94,27 @@ def update_embeddings(conn,table_name,l):
                 VALUES (%s, %s, %s, %s)""",
                 l)
 
-def make_naive_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_size=500):
+def make_naive_embedding(conn,read_id,write_id,table_name,tokenizer,model,cap_max_size,chunk_size=1):
     
     make_embeddings_table(conn,table_name,model.config.hidden_size)
-    max_size=model.config.max_position_embeddings
-    #print(max_size)
+
     snippets=get_gpt_snippets_by_strategy(conn,read_id)
     
     
-    for c in chunk_iterator(tqdm(snippets),tokenizer,max_size,chunk_size):
+    for c in chunk_iterator(tqdm(snippets),tokenizer,cap_max_size,chunk_size):
+        max_size=max(len(x[1]) for x in c)
+        max_size=min([max_size,cap_max_size])
+
         mask=[[1]*len(x[1])+[0]*(max_size-len(x[1])) for x in c]
         tokens=[x[1]+[0]*(max_size-len(x[1])) for x in c]
 
         out=run_mean(tokens,mask,model)
         update_embeddings(conn,table_name,[(x[0],write_id,x[1],o) for x,o in zip(c,out)])
 
-def make_pooler_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_size=500):
-    make_embeddings_table(conn,table_name,model.config.hidden_size)
-    max_size=model.config.max_position_embeddings
-    #print(max_size)
-    snippets=get_gpt_snippets_by_strategy(conn,read_id)
-    
-    bar=tqdm(snippets)
-    print('got to iterator tqdn should exist')
-    for c in chunk_iterator(bar,tokenizer,max_size,chunk_size):
-        mask=[[1]*len(x[1])+[0]*(max_size-len(x[1])) for x in c]
-        tokens=[x[1]+[0]*(max_size-len(x[1])) for x in c]
-
-        out=run_pooler(tokens,mask,model)
-        update_embeddings(conn,table_name,[(x[0],write_id,x[1],o) for x,o in zip(c,out)])
 
 # Example usage
 if __name__ == "__main__":
+    max_size=2048
     #using avrage pooling because https://aclanthology.org/D19-1410.pdf
     #model_name="bert-base-multilingual-cased"
     #model_name="avichr/Legal-heBERT"
@@ -134,19 +123,17 @@ if __name__ == "__main__":
     #model_name="models/bert-base-uncased_L2_v0"
     #model_name="sentence-transformers/all-MiniLM-L6-v2"#(sbert)
     #model_name="imvladikon/sentence-transformers-alephbert"
-    
-    #model_name="thenlper/gte-base"#"aws-neuron/bge-base-en-v1-5-seqlen-384-bs-1"
-    model_name="BAAI/bge-large-en-v1.5"
-    #model_name="llmrails/ember-v1"
+
+    model_name="intfloat/e5-mistral-7b-instruct"
 
     tokenizer=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name)
-    print(model.config.max_position_embeddings)
-    model.to('cuda')
+    print(f'real max size is: {model.config.max_position_embeddings}\ngona be using: {max_size}')
+    #model.to('cuda')
     #embedding_table_name=f"{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
     strat_name="naive"
     #strat_name="test_based"
-    table_extra="squad_ContextFromQuestion_v2_"#"squad_ContextFromQuestion_"#"wiki_"
+    table_extra="squad_ContextFromQuestion_"#"wiki_"
 
     #BREAKING CHANGE
     embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
@@ -156,10 +143,9 @@ if __name__ == "__main__":
     #print(model(**tokenizer("שלום",return_tensors="pt")).last_hidden_state.shape)
     with psycopg2.connect(**conn_params) as conn:
         #read_id=get_strategy_by_name(conn,"deafualt choped 1_000 10_000")['strategy_id']
-        #read_id=get_strategy_by_name(conn,"10wikipedia choped  100_000")['strategy_id']##
-        #read_id=get_strategy_by_name(conn,"hebrew squad (question->context)")['strategy_id']
+        #read_id=get_strategy_by_name(conn,"10wikipedia choped  100_000")['strategy_id']
+        read_id=get_strategy_by_name(conn,"hebrew squad (question->context)")['strategy_id']
         #read_id=get_strategy_by_name(conn,"ensglish squad (question->context)")['strategy_id']
-        read_id=get_strategy_by_name(conn,"ensglish squad (question->context) v2")['strategy_id']
         #print(read_id)
         
 
@@ -170,5 +156,4 @@ if __name__ == "__main__":
         else:
             write_id=write_id['strategy_id']
         
-        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model,chunk_size=64)#,chunk_size=32)#,chunk_size=1)#,chunk_size=32)
-        #make_pooler_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)
+        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model,max_size,chunk_size=1)#,chunk_size=32)
