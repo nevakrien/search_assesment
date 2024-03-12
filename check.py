@@ -1,5 +1,6 @@
 from deepsparse.sentence_transformers import DeepSparseSentenceTransformer
-model = DeepSparseSentenceTransformer('neuralmagic/bge-large-en-v1.5-quant', export=False,device='cuda')
+model = DeepSparseSentenceTransformer('neuralmagic/bge-large-en-v1.5-quant', export=False)
+
 
 # Our sentences we like to encode
 sentences = ['This framework generates embeddings for each input sentence',

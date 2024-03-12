@@ -53,11 +53,25 @@ def chunk_iterator(snippets,tokenizer,max_size,chunk_size):
     if(ans):
         yield ans
 
+# def tensor_iterator(snippets,tokenizer,chunk_size):
+#     ans=[]
+#     for s in snippets:
+#         output=tokenizer(s['snippet_text'],padding=True, truncation=True, return_tensors='pt')
+#         #print(output.keys())
+#         ans.append((s['snippet_id'],output['input_ids'],output['attention_mask']))
+#         if(len(ans)==chunk_size):
+#             yield ans
+#             ans=[]
+
+#     if(ans):
+#         yield ans
+
 @torch.no_grad
 def run_mean(tokens,mask,model):
     mask=torch.IntTensor(mask).to(model.device)
     tokens=torch.IntTensor(tokens).to(model.device)
     #print(tokens.shape)
+    #print(mask.shape)
 
     out=model(tokens,mask).last_hidden_state
     
@@ -65,6 +79,36 @@ def run_mean(tokens,mask,model):
     out*=mask
     #print(out.sum(1).shape)
     return (out.sum(1)/mask.sum(1)).cpu().tolist()
+
+@torch.no_grad
+def run_mean_nomic(tokens,mask,model):
+    mask=torch.IntTensor(mask).to(model.device)
+    tokens=torch.IntTensor(tokens).to(model.device)
+    #print(tokens.shape)
+    #print(mask.shape)
+
+    out=model(input_ids=tokens,attention_mask=mask).last_hidden_state
+    #print(out)
+    
+    mask=mask[:,:,None]
+    out*=mask
+    #print(out.sum(1).shape)
+    return (out.sum(1)/mask.sum(1)).cpu().tolist()
+
+# @torch.no_grad
+# def run_mean_tensors(tokens,mask,model):
+#     print(tokens)
+#     print(mask)
+#     mask=mask.to(model.device)
+#     tokens=tokens.to(model.device)
+#     #print(tokens.shape)
+
+#     out=model(tokens,mask).last_hidden_state
+    
+#     mask=mask[:,:,None]
+#     out*=mask
+#     #print(out.sum(1).shape)
+#     return (out.sum(1)/mask.sum(1)).cpu().tolist()
 
 @torch.no_grad
 def run_pooler(tokens,mask,model):
@@ -109,6 +153,21 @@ def make_naive_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_
         out=run_mean(tokens,mask,model)
         update_embeddings(conn,table_name,[(x[0],write_id,x[1],o) for x,o in zip(c,out)])
 
+def make_avg_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_size=500):
+    
+    make_embeddings_table(conn,table_name,model.config.hidden_size)
+    max_size=model.config.max_position_embeddings
+    #print(max_size)
+    snippets=get_gpt_snippets_by_strategy(conn,read_id)
+    
+    
+    for c in chunk_iterator(tqdm(snippets),tokenizer,max_size,chunk_size):
+        mask=[[1]*len(x[1])+[0]*(max_size-len(x[1])) for x in c]
+        tokens=[x[1]+[0]*(max_size-len(x[1])) for x in c]
+
+        out=run_mean_nomic(tokens,mask,model)
+        update_embeddings(conn,table_name,[(x[0],write_id,x[1],o) for x,o in zip(c,out)])
+
 def make_pooler_embedding(conn,read_id,write_id,table_name,tokenizer,model,chunk_size=500):
     make_embeddings_table(conn,table_name,model.config.hidden_size)
     max_size=model.config.max_position_embeddings
@@ -136,8 +195,11 @@ if __name__ == "__main__":
     #model_name="imvladikon/sentence-transformers-alephbert"
     
     #model_name="thenlper/gte-base"#"aws-neuron/bge-base-en-v1-5-seqlen-384-bs-1"
-    model_name="BAAI/bge-large-en-v1.5"
+    #model_name="BAAI/bge-large-en-v1.5"
     #model_name="llmrails/ember-v1"
+
+    #model_name="nomic-ai/nomic-embed-text-v1" #breaks the huggingface standard on argument order...
+    #model_name="yam-peleg/Hebrew-Gemma-11B" #too slow gona need to run in a place with gpu (with my local machine db talking to it)
 
     tokenizer=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name)
@@ -160,6 +222,8 @@ if __name__ == "__main__":
         #read_id=get_strategy_by_name(conn,"hebrew squad (question->context)")['strategy_id']
         #read_id=get_strategy_by_name(conn,"ensglish squad (question->context)")['strategy_id']
         read_id=get_strategy_by_name(conn,"ensglish squad (question->context) v2")['strategy_id']
+        #read_id=get_strategy_by_name(conn,"hebrew squad (question->context) v2")['strategy_id']
+        
         #print(read_id)
         
 
@@ -170,5 +234,6 @@ if __name__ == "__main__":
         else:
             write_id=write_id['strategy_id']
         
-        make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model,chunk_size=64)#,chunk_size=32)#,chunk_size=1)#,chunk_size=32)
+        #make_naive_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model,chunk_size=64)#,chunk_size=32)#,chunk_size=1)#,chunk_size=32)
         #make_pooler_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model)
+        make_avg_embedding(conn,read_id,write_id,embedding_table_name,tokenizer,model,chunk_size=2)

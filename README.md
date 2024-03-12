@@ -13,6 +13,7 @@ pip3 install -r requirments.txt
 '''
 
 '''bash 
+pg_ctl start
 createdb -h localhost -U postgres hebrew_search_reaserch
 '''
 
