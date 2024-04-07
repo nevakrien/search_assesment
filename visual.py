@@ -58,10 +58,11 @@ def plot_experiments(experiments):
 # }
 
 experiments = {
-    'bge-large-en-v1.5':{'k': 1, 'N': 10570, 'Q': 10570, 'X': 1608},
-    'sentence-transformers-alephbert':{'k': 1, 'N': 7455, 'Q': 7455, 'X': 588},
+    #'bge-large-en-v1.5':{'k': 1, 'N': 10570, 'Q': 10570, 'X': 1608},
+    #'sentence-transformers-alephbert':{'k': 1, 'N': 7455, 'Q': 7455, 'X': 588},
     'heBERT':{'k': 1, 'N': 7455, 'Q': 7455, 'X': 416},
-    'base-bert':{'k': 1, 'N': 10570, 'Q': 10570, 'X': 681},
+    'mymodel':{'k': 1, 'N': 7455, 'Q': 7455, 'X': 15},
+    #'base-bert':{'k': 1, 'N': 10570, 'Q': 10570, 'X': 681},
 }
 # Run the function with your experiments
 plot_experiments(experiments)

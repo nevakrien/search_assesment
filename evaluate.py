@@ -102,6 +102,27 @@ def get_naive_retriver(model_name,embedding_table_name,k=1):
 			return [x[0] for x in cursor.fetchall()]
 	return ans
 
+def get_naive_retriver_parts(embedding_table_name,tokenizer_path,model_path,k=1):
+	tokenizer=AutoTokenizer.from_pretrained(tokenizer_path)
+	model=AutoModel.from_pretrained(model_path)
+	model.to('cuda')
+	#embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+
+	@torch.no_grad
+	def ans(conn,text):
+		emb=model(tokenizer.encode(text,return_tensors='pt').to(model.device))
+		emb=emb.last_hidden_state.mean(1).cpu().tolist()[0]
+		with conn.cursor() as cursor:
+			cursor.execute(f"""SELECT snippet_id
+								FROM {embedding_table_name}
+								WHERE embedding IS NOT NULL
+								ORDER BY embedding <=> %s
+								LIMIT %s;""",
+								(str(emb),k)
+								)
+			return [x[0] for x in cursor.fetchall()]
+	return ans
+
 
 #this is needed because nomic is buggy
 @torch.no_grad
@@ -127,6 +148,44 @@ def get_nomic_retriver(model_name,embedding_table_name,k=1):
 	tokenizer=AutoTokenizer.from_pretrained(model_name)
 	model=AutoModel.from_pretrained(model_name)
 	model.to('cuda')
+	#embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
+
+	@torch.no_grad
+	def ans(conn,text):
+		#inputs={k:torch.IntTensor([v]).to(model.device) for k,v in tokenizer(text).items()}
+		#inputs={k:torch.IntTensor([v+[0]*(model.config.max_position_embeddings-len(v))]).to(model.device) for k,v in tokenizer([text,text]).items()}#, return_tensors='pt').items()}
+		#inputs={k:[v+[0]*(model.config.max_position_embeddings-len(v))] for k,v in tokenizer(text).items()}#, return_tensors='pt').items()}
+		#inputs={k:2*v for k,v in tokenizer(text).items()}
+		# print({k:v.shape for k,v in emb.items()})
+		#inputs.pop('token_type_ids') 
+		assert(type(text)==str)
+		inputs=tokenizer([text])
+		try:
+			emb=run_mean_nomic(inputs['input_ids'],inputs['attention_mask'],model)
+			#emb=model(**inputs)
+			#emb=model(input_ids=inputs['input_ids'],attention_mask=inputs['attention_mask'])
+		except Exception as e:
+			print({k:v for k,v in inputs.items()})
+			raise e
+		#print(type(emb))
+		#assert 1==2/4
+		emb=emb[0]
+		#emb=emb[0].last_hidden_state.mean(1).cpu().tolist()[0]
+		#print('ok')
+		with conn.cursor() as cursor:
+			cursor.execute(f"""SELECT snippet_id
+								FROM {embedding_table_name}
+								WHERE embedding IS NOT NULL
+								ORDER BY embedding <=> %s
+								LIMIT %s;""",
+								(str(emb),k)
+								)
+			return [x[0] for x in cursor.fetchall()]
+	return ans
+
+def get_quant_retriver(model_name,embedding_table_name,k=1):
+	tokenizer=AutoTokenizer.from_pretrained(model_name)
+	model=AutoModel.from_pretrained(model_name,load_in_4bit=True,bnb_4bit_compute_dtype=torch.float16)
 	#embedding_table_name=f"{model_name.replace('/','_').replace('-','_')}_avrage_pool"
 
 	@torch.no_grad
@@ -222,9 +281,9 @@ if __name__=="__main__":
 
 	with psycopg2.connect(**conn_params) as conn:  
 		#strats=["10 wikipedia gpt4"]#["1000 gpt3.5"]
-		#strats=["hebrew squad (question->context)"]
+		strats=["hebrew squad (question->context)"]
 		#strats=["ensglish squad (question->context)"]
-		strats=["ensglish squad (question->context) v2"]
+		#strats=["ensglish squad (question->context) v2"]
 		#strats=["hebrew squad (question->context) v2"]
 
 		#trans_strats=["basic: facebook/nllb-200-3.3B"]
@@ -258,11 +317,20 @@ if __name__=="__main__":
 		#model_name="avichr/Legal-heBERT"
 		#model_name="bert-base-multilingual-cased"
 
-		model_name="nomic-ai/nomic-embed-text-v1" #total corect: 1624 accuracy: 0.15364238410596026
+		#model_name="nomic-ai/nomic-embed-text-v1" #total corect: 1624 accuracy: 0.15364238410596026
+
+		#model_name="google/gemma-7b"#hard #total corect: 24 accuracy: 0.002270577105014191 #hebrew_hard total corect: 18accuracy: 0.002414486921529175
+
+		model_name="my_model" #total corect: 3 accuracy: 0.00040241448692152917 #EASY total corect: 15 accuracy: 0.002012072434607646
+
+
+		model_path="/media/user/8a594cab-20d9-43ef-8d0e-b60b5cf43462/hebrew_search_stuff/results/checkpoint-2040000"
+		tokenizer_path="avichr/heBERT"
 
 
 
-		table_extra="squad_ContextFromQuestion_v2_"#"squad_ContextFromQuestion_"#"wiki_"
+
+		table_extra="squad_ContextFromQuestion_v1_hebrew"#"squad_ContextFromQuestion_v2_hebrew"#"squad_ContextFromQuestion_v2_"#"squad_ContextFromQuestion_"#"wiki_"
 		embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_avrage_pool"
 		#embedding_table_name=f"{table_extra}{model_name.replace('/','_').replace('-','_').replace('.','_')}_pooler"
 
@@ -271,11 +339,12 @@ if __name__=="__main__":
 		
 
 		#retrive=get_naive_retriver(model_name,embedding_table_name,1)#100)#1)#327285 #100_000
-		retrive=get_nomic_retriver(model_name,embedding_table_name,1)#100)#1)#327285 #100_000
+		#retrive=get_nomic_retriver(model_name,embedding_table_name,1)#100)#1)#327285 #100_000
 		#retrive=get_pooler_retriver(model_name,embedding_table_name,1)
 		#retrive=get_L2_pooler_retriver(model_name,embedding_table_name,1)
 		#retrive=get_random_retriver(model_name,embedding_table_name,3)#327285 #100_000
-		
+		#retrive=get_quant_retriver(model_name,embedding_table_name,1)
+		retrive=get_naive_retriver_parts(embedding_table_name,tokenizer_path,model_path)
 		
 		ans=evaluate_retriver(conn,retrive,data,2)
 		
