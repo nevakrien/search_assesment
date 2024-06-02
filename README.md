@@ -1,9 +1,13 @@
 # search_assesment
+
 working on building a working assesment for information retrival using machine generated data
 documentation is still lacking
 
-this code was supposed to be an easy to use repo for this purpose. however as I keep doing reaserch I find that this is not nearly done and so finalizing it is futile. I would make another repo with the user side code for other devlopers once I have a satisfactory algorithem.
+the core file of this project is evaluate.py where the results of the expirements are saved
 
+this is mainly my working sketch of things and the usage is generally based in the command line itself. important to note that this project is no longer in active devlopment and we are unlikely to see changes
+
+the statistical anylisis in visual.py should be easy enough to use for most people so the results should be meaningful regardless of your math backround	
 
 # build 
 python 3.10
@@ -51,6 +55,6 @@ except for translation strategy, the entire database operation can be described 
 
 dont alow 2 strategies to share a name
 
-dont add aproximate indcies to an existing table since that would break old expirements sighlently. 
+dont add aproximate indcies to an existing table since that would break old expirements silently. 
 
 dont run this in production 
